@@ -1,0 +1,367 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>E-Exam Platform</title>
+  <style>
+    body {
+
+      font-family: Arial, sans-serif;
+     background:#008080;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+    }
+    .container {
+      background: #fff;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      width: 90%;
+      max-width: 600px;
+    }
+    h1, h2, h3 { text-align: center; }
+    button {
+      background: #2563eb;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 6px;
+      cursor: pointer;
+      margin: 5px;
+    }
+    button:hover { background: #1e40af; }
+    .option {
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      padding: 10px;
+      margin: 5px 0;
+      cursor: pointer;
+    }
+    .option.selected {
+      background: #bfdbfe;
+      border-color: #2563eb;
+    }
+    .hidden { display: none; }
+    .btn-group {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 15px;
+    }
+    input[type=text] {
+      width: 100%;
+      padding: 10px;
+      margin: 10px 0;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+    #timer {
+      text-align: right;
+      font-weight: bold;
+      color: #dc2626;
+      margin-bottom: 10px;
+    }
+    .review-item {
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      padding: 10px;
+      margin: 10px 0;
+    }
+    .correct { background: #d1fae5; }
+    .wrong { background: #fee2e2; }
+    .answer { font-weight: bold; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Login Page -->
+    <div id="login-page">
+      <h1>E-Exam Platform</h1>
+      <input type="text" id="username" placeholder="Enter your name" />
+      <button onclick="login()">Login</button>
+    </div>
+
+    <!-- Subject Selection -->
+    <div id="subject-page" class="hidden">
+      <h2>Select a Subject</h2>
+      <div id="subjects"></div>
+    </div>
+
+    <!-- Exam Page -->
+    <div id="exam-page" class="hidden">
+      <div id="timer"></div>
+      <h3 id="question-text"></h3>
+      <div id="options"></div>
+      <div class="btn-group">
+        <button id="prev-btn" onclick="prevQuestion()">Previous</button>
+        <button id="next-btn" onclick="nextQuestion()">Next</button>
+      </div>
+      <div style="text-align:right; margin-top:10px;">
+        <span id="progress"></span>
+      </div>
+    </div>
+
+    <!-- Result Page -->
+    <div id="result-page" class="hidden">
+      <h2>Exam Result</h2>
+      <p id="result-subject"></p>
+      <p id="result-total"></p>
+      <p id="result-attempted"></p>
+      <p id="result-left"></p>
+      <p id="result-marks"></p>
+      <button onclick="restart()">Restart</button>
+      <button id="review-btn" onclick="showReview()">Review Answers</button>
+    </div>
+
+    <!-- Review Page -->
+    <div id="review-page" class="hidden">
+      <h2>Review Answers</h2>
+      <div id="review-content"></div>
+      <button onclick="backToResult()">Back to Result</button>
+    </div>
+  </div>
+
+  <script>
+    const subjects = ["C/C++", "JavaScript", "HTML", "CSS", "PHP"];
+    let username = "";
+    let selectedSubject = "";
+    let questions = [];
+    let answers = {};
+    let current = 0;
+    let timerInterval;
+    let timeRemaining = 7 * 60; // 7 minutes in seconds
+
+    const questionBank = {
+      "C/C++": [
+        {id:1,question:"Which of the following is a valid C++ variable name?",options:["2value","_value","value-1","value one"],correct:1},
+        {id:2,question:"Which operator is used to allocate memory dynamically in C++?",options:["malloc","alloc","new","create"],correct:2},
+        {id:3,question:"What is the size of an int typically in C++?",options:["2 bytes","4 bytes","8 bytes","Depends on compiler"],correct:3},
+        {id:4,question:"Which keyword is used to inherit a class in C++?",options:["inherits","base","extends",":"],correct:3},
+        {id:5,question:"Which header file is required for cout?",options:["<iostream>","<stdio.h>","<conio.h>","<stdlib.h>"],correct:0},
+        {id:6,question:"Which is not a C++ data type?",options:["int","float","real","char"],correct:2},
+        {id:7,question:"Which of the following is used to comment a single line in C++?",options:["/* comment */","// comment","<!-- comment -->","** comment **"],correct:1},
+        {id:8,question:"Which of the following is the correct syntax of including a user-defined header file?",options:["#include <file>","#include 'file.h'","#include <file.h>","#include file.h"],correct:1},
+        {id:9,question:"Which of these is not a loop structure in C++?",options:["for","while","foreach","do-while"],correct:2},
+        {id:10,question:"Who developed C++?",options:["Bjarne Stroustrup","Dennis Ritchie","James Gosling","Guido van Rossum"],correct:0}
+      ],
+      "JavaScript": [
+        {id:1,question:"Which of the following is not a JavaScript data type?",options:["Number","String","Boolean","Character"],correct:3},
+        {id:2,question:"Inside which HTML element do we put the JavaScript?",options:["<js>","<scripting>","<script>","<javascript>"],correct:2},
+        {id:3,question:"Which symbol is used for comments in JavaScript?",options:["//","<!--","**","##"],correct:0},
+        {id:4,question:"Which method can be used to display data in JavaScript?",options:["document.write()","console.log()","alert()","All of these"],correct:3},
+        {id:5,question:"Which company developed JavaScript?",options:["Mozilla","Sun Microsystems","Netscape","Microsoft"],correct:2},
+        {id:6,question:"What keyword is used to declare a constant in JS?",options:["let","var","const","define"],correct:2},
+        {id:7,question:"Which operator is used to assign a value?",options:[":","=","==","==="],correct:1},
+        {id:8,question:"Which function is used to convert to an integer?",options:["parseInt()","toInteger()","int()","convertInt()"],correct:0},
+        {id:9,question:"JavaScript is a ___-side programming language?",options:["Client","Server","Both","None"],correct:2},
+        {id:10,question:"Which symbol is used for single-line comments?",options:["<!-- -->","//","/* */","#"],correct:1}
+      ],
+      "HTML": [
+        {id:1,question:"What does HTML stand for?",options:["Hyper Text Markup Language","High Text Machine Language","Hyperlinks and Text Markup Language","Home Tool Markup Language"],correct:0},
+        {id:2,question:"Which tag is used to create a hyperlink?",options:["<a>","<link>","<href>","<hyper>"],correct:0},
+        {id:3,question:"Which tag is used for inserting a line break?",options:["<lb>","<break>","<br>","<b>"],correct:2},
+        {id:4,question:"Which HTML attribute specifies an alternate text for an image?",options:["alt","title","name","src"],correct:0},
+        {id:5,question:"Which tag is used to define an unordered list?",options:["<ul>","<ol>","<li>","<list>"],correct:0},
+        {id:6,question:"Which tag is used for the largest heading?",options:["<h1>","<heading>","<h6>","<head>"],correct:0},
+        {id:7,question:"Which HTML element is used for inserting an image?",options:["<image>","<img>","<src>","<picture>"],correct:1},
+        {id:8,question:"Which attribute is used to open a link in a new tab?",options:["target='_blank'","newtab","href","window='_new'"],correct:0},
+        {id:9,question:"HTML files have the extension:",options:[".html",".js",".ht",".css"],correct:0},
+        {id:10,question:"Who invented HTML?",options:["Tim Berners-Lee","Bill Gates","Dennis Ritchie","Bjarne Stroustrup"],correct:0}
+      ],
+      "CSS": [
+        {id:1,question:"What does CSS stand for?",options:["Creative Style Sheets","Cascading Style Sheets","Computer Style Sheets","Colorful Style Sheets"],correct:1},
+        {id:2,question:"Which property changes text color?",options:["font-color","color","text-color","foreground"],correct:1},
+        {id:3,question:"Which property changes background color?",options:["bgColor","background","background-color","color-bg"],correct:2},
+        {id:4,question:"Which property changes text size?",options:["font-size","text-size","font","size"],correct:0},
+        {id:5,question:"Which CSS property makes text bold?",options:["font-weight","text-bold","bold","font-style"],correct:0},
+        {id:6,question:"Which is the correct syntax for comments in CSS?",options:["// comment","/* comment */","<! comment >","# comment"],correct:1},
+        {id:7,question:"Which property changes text alignment?",options:["align","text-align","alignment","font-align"],correct:1},
+        {id:8,question:"Which unit is relative to the root element font size?",options:["px","em","%","rem"],correct:3},
+        {id:9,question:"Which property controls the spacing between lines?",options:["line-spacing","line-height","spacing","letter-spacing"],correct:1},
+        {id:10,question:"How can you include an external CSS file?",options:["<link>","<css>","<style src>","<stylesheet>"],correct:0}
+      ],
+      "PHP": [
+        {id:1,question:"What does PHP stand for?",options:["Personal Home Page","PHP: Hypertext Preprocessor","Private Hyper Processor","Public Hosting Platform"],correct:1},
+        {id:2,question:"PHP files have the extension:",options:[".php",".ph",".phtml",".html"],correct:0},
+        {id:3,question:"Which symbol is used to start a variable in PHP?",options:["#","$","&","@"],correct:1},
+        {id:4,question:"Which function outputs text in PHP?",options:["echo","print","write","display"],correct:0},
+        {id:5,question:"Which version of PHP introduced OOP?",options:["PHP 3","PHP 4","PHP 5","PHP 7"],correct:2},
+        {id:6,question:"Which function is used to include a file in PHP?",options:["add()","include()","require()","import()"],correct:1},
+        {id:7,question:"Which superglobal holds form data?",options:["$_FORM","$_GET","$_DATA","$_POST"],correct:3},
+        {id:8,question:"Which function is used to connect to a MySQL database?",options:["mysql_connect()","connect_db()","mysqli_connect()","db_connect()"],correct:2},
+        {id:9,question:"Which tag is used to start PHP code?",options:["<php>","<?php","<?","<?="],correct:1},
+        {id:10,question:"PHP is a ___ scripting language.",options:["Client-side","Server-side","Both","None"],correct:1}
+      ]
+    };
+
+   const loginPage = document.getElementById("login-page");
+    const subjectPage = document.getElementById("subject-page");
+    const examPage = document.getElementById("exam-page");
+    const resultPage = document.getElementById("result-page");
+    const reviewPage = document.getElementById("review-page"); 
+    const reviewContent = document.getElementById("review-content"); 
+    const questionText = document.getElementById("question-text");
+    const optionsDiv = document.getElementById("options");
+    const progress = document.getElementById("progress");
+    const timerDisplay = document.getElementById("timer");
+
+    function login() {
+      const nameInput = document.getElementById("username");
+      username = nameInput.value.trim();
+      if (username === "") {
+        alert("Please enter your name!");
+        return;
+      }
+      loginPage.classList.add("hidden");
+      subjectPage.classList.remove("hidden");
+      renderSubjects();
+    }
+
+    function renderSubjects() {
+      const subjectsDiv = document.getElementById("subjects");
+      subjectsDiv.innerHTML = "";
+      subjects.forEach(subj => {
+        const btn = document.createElement("button");
+        btn.textContent = subj;
+        btn.onclick = () => startExam(subj);
+        subjectsDiv.appendChild(btn);
+      });
+    }
+
+    function startExam(subj) {
+      selectedSubject = subj;
+      questions = questionBank[subj] || [];
+      answers = {};
+      current = 0;
+      timeRemaining = 7 * 60; // reset timer
+      subjectPage.classList.add("hidden");
+      examPage.classList.remove("hidden");
+      renderQuestion();
+      startTimer();
+    }
+
+    function renderQuestion() {
+      const q = questions[current];
+      questionText.textContent = `Q${q.id}. ${q.question}`;
+      optionsDiv.innerHTML = "";
+      q.options.forEach((opt, idx) => {
+        const div = document.createElement("div");
+        div.className = "option";
+        if (answers[q.id] === idx) div.classList.add("selected");
+        div.textContent = opt;
+        div.onclick = () => selectAnswer(q.id, idx);
+        optionsDiv.appendChild(div);
+      });
+      progress.textContent = `Question ${current + 1} / ${questions.length}`;
+      document.getElementById("prev-btn").disabled = current === 0;
+      document.getElementById("next-btn").textContent =
+        current === questions.length - 1 ? "Finish" : "Next";
+    }
+
+    function selectAnswer(qId, idx) {
+      answers[qId] = idx;
+      renderQuestion();
+    }
+
+    function nextQuestion() {
+      if (current === questions.length - 1) {
+        showResult();
+      } else {
+        current++;
+        renderQuestion();
+      }
+    }
+
+    function prevQuestion() {
+      if (current > 0) {
+        current--;
+        renderQuestion();
+      }
+    }
+
+    function showResult() {
+      clearInterval(timerInterval);
+      examPage.classList.add("hidden");
+      resultPage.classList.remove("hidden");
+
+      const total = questions.length;
+      const attempted = Object.keys(answers).length;
+      const left = total - attempted;
+      let marks = 0;
+      for (let q of questions) {
+        if (answers[q.id] === q.correct) marks++;
+      }
+
+      document.getElementById("result-subject").textContent = "Subject: " + selectedSubject;
+      document.getElementById("result-total").textContent = "Total Questions: " + total;
+      document.getElementById("result-attempted").textContent = "Questions Attempted: " + attempted;
+      document.getElementById("result-left").textContent = "Questions Left: " + left;
+      document.getElementById("result-marks").textContent = "Total Marks: " + marks;
+    }
+
+    // Show Review Page
+function showReview() {
+  resultPage.classList.add("hidden");
+  reviewPage.classList.remove("hidden");
+  reviewContent.innerHTML = "";
+
+  questions.forEach(q => {
+    const userAns = answers[q.id];
+    const correctAns = q.correct;
+    const isCorrect = userAns === correctAns;
+
+    const div = document.createElement("div");
+    div.className = "review-item " + (isCorrect ? "correct" : "wrong");
+
+    // Create structure safely
+    div.innerHTML = `
+      <p><strong>Q${q.id}:</strong> ${q.question}</p>
+      <p>Your Answer: <span class="answer"></span></p>
+      <p>Correct Answer: <span class="answer"></span></p>
+      <p>Status: ${isCorrect ? "\u2705 Correct" : "\u2715 Wrong"}</p>
+    `;
+
+    // Safely insert answer text (prevents HTML tag rendering)
+    const ansSpans = div.querySelectorAll(".answer");
+    ansSpans[0].textContent = userAns !== undefined ? q.options[userAns] : "Not Answered";
+    ansSpans[1].textContent = q.options[correctAns];
+
+    reviewContent.appendChild(div);
+  });
+}   
+
+    function backToResult() {
+      reviewPage.classList.add("hidden");
+      resultPage.classList.remove("hidden");
+    }
+
+    function restart() {
+      resultPage.classList.add("hidden");
+      loginPage.classList.remove("hidden");
+    }
+
+    function startTimer() {
+      updateTimerDisplay();
+      timerInterval = setInterval(() => {
+        timeRemaining--;
+        updateTimerDisplay();
+        if (timeRemaining <= 0) {
+          clearInterval(timerInterval);
+          alert("Time is up! Submitting your exam.");
+          showResult();
+        }
+      }, 1000);
+    }
+
+    function updateTimerDisplay() {
+      const minutes = Math.floor(timeRemaining / 60);
+      const seconds = timeRemaining % 60;
+      timerDisplay.textContent = `Time Left: ${minutes}:${seconds.toString().padStart(2, "0")}`;
+    }
+  </script>
+</body>
+</html>
